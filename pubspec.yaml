@@ -1,0 +1,67 @@
+name: trailgame
+description: "Orb Tumble Trail — a habit tracker where every habit is a living orb rolling along your trail."
+publish_to: 'none'
+
+version: 1.0.0+1
+
+environment:
+  sdk: ^3.12.2
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  cupertino_icons: ^1.0.8
+  provider: ^6.1.5+1
+  shared_preferences: ^2.5.5
+  flutter_animate: ^4.5.2
+  fl_chart: ^1.2.0
+  webview_flutter: ^4.14.1
+  image_picker: ^1.2.3
+  path_provider: ^2.1.6
+  confetti: ^0.8.0
+  table_calendar: ^3.2.0
+  smooth_page_indicator: ^2.0.1
+  percent_indicator: ^4.2.5
+  connectivity_plus: ^7.3.1
+  intl: ^0.20.3
+  uuid: ^4.6.0
+  gap: ^3.0.1
+  shimmer: ^3.0.0
+  animations: ^2.2.0
+  material_symbols_icons: ^4.2960.0
+  flutter_local_notifications: ^22.2.0
+  timezone: ^0.11.1
+  flutter_timezone: ^5.1.0
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+  flutter_launcher_icons: ^0.14.4
+
+flutter:
+  uses-material-design: true
+
+  assets:
+    - assets/
+
+  fonts:
+    # Syne — geometric variable display font, weight 400-800 (replaces SpaceGrotesk)
+    - family: Syne
+      fonts:
+        - asset: assets/fonts/Syne_wght.ttf
+    # Plus Jakarta Sans — modern variable body font, weight 200-800 (replaces Outfit)
+    - family: PlusJakartaSans
+      fonts:
+        - asset: assets/fonts/PlusJakartaSans_wght.ttf
+
+flutter_launcher_icons:
+  android: true
+  ios: false
+  image_path: "assets/icon.png"
+  adaptive_icon_background: "#000000"
+  adaptive_icon_foreground: "assets/icon.png"
+  adaptive_icon_foreground_inset: 4
+  adaptive_icon_monochrome: "assets/icon.png"
+  min_sdk_android: 23
+  remove_alpha_ios: true
