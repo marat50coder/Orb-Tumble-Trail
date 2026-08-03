@@ -49,6 +49,3 @@ app.*.map.json
 *.keystore
 key.properties
 
-# Firebase config — do NOT commit on a public repo (client secrets)
-ios/Runner/GoogleService-Info.plist
-
