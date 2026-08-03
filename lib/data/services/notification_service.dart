@@ -33,8 +33,19 @@ class NotificationService {
     category: AndroidNotificationCategory.reminder,
   );
 
-  static const NotificationDetails _details =
-      NotificationDetails(android: _androidDetails);
+  static const DarwinNotificationDetails _iosDetails =
+      DarwinNotificationDetails(
+    presentAlert: true,
+    presentBadge: true,
+    presentSound: true,
+    interruptionLevel: InterruptionLevel.active,
+  );
+
+  static const NotificationDetails _details = NotificationDetails(
+    android: _androidDetails,
+    iOS: _iosDetails,
+    macOS: _iosDetails,
+  );
 
   Future<void> init() async {
     if (_ready) return;
@@ -42,8 +53,19 @@ class NotificationService {
 
     const AndroidInitializationSettings android =
         AndroidInitializationSettings('@mipmap/ic_launcher');
-    const InitializationSettings settings =
-        InitializationSettings(android: android);
+    // Don't request permissions at init on iOS — we do that lazily from
+    // requestPermissions() when the user actually turns on reminders, so the
+    // system prompt has clear context.
+    const DarwinInitializationSettings ios = DarwinInitializationSettings(
+      requestAlertPermission: false,
+      requestBadgePermission: false,
+      requestSoundPermission: false,
+    );
+    const InitializationSettings settings = InitializationSettings(
+      android: android,
+      iOS: ios,
+      macOS: ios,
+    );
 
     try {
       await _plugin.initialize(settings: settings);
@@ -65,26 +87,68 @@ class NotificationService {
     _tzReady = true;
   }
 
-  /// Asks the OS for permission to post notifications (Android 13+) and to
-  /// schedule exact alarms. Safe to call repeatedly. Returns whether granted.
+  /// Asks the OS for permission to post notifications (Android 13+ / iOS) and
+  /// to schedule exact alarms (Android). Safe to call repeatedly. Returns
+  /// whether granted.
   Future<bool> requestPermissions() async {
     await init();
+
     final AndroidFlutterLocalNotificationsPlugin? android =
         _plugin.resolvePlatformSpecificImplementation<
             AndroidFlutterLocalNotificationsPlugin>();
-    if (android == null) return false;
-    final bool? granted = await android.requestNotificationsPermission();
-    await android.requestExactAlarmsPermission();
-    return granted ?? true;
+    if (android != null) {
+      final bool? granted = await android.requestNotificationsPermission();
+      await android.requestExactAlarmsPermission();
+      return granted ?? true;
+    }
+
+    final IOSFlutterLocalNotificationsPlugin? ios =
+        _plugin.resolvePlatformSpecificImplementation<
+            IOSFlutterLocalNotificationsPlugin>();
+    if (ios != null) {
+      final bool? granted = await ios.requestPermissions(
+        alert: true,
+        badge: true,
+        sound: true,
+      );
+      return granted ?? false;
+    }
+
+    final MacOSFlutterLocalNotificationsPlugin? macos =
+        _plugin.resolvePlatformSpecificImplementation<
+            MacOSFlutterLocalNotificationsPlugin>();
+    if (macos != null) {
+      final bool? granted = await macos.requestPermissions(
+        alert: true,
+        badge: true,
+        sound: true,
+      );
+      return granted ?? false;
+    }
+
+    return false;
   }
 
   Future<bool> hasPermission() async {
     await init();
+
     final AndroidFlutterLocalNotificationsPlugin? android =
         _plugin.resolvePlatformSpecificImplementation<
             AndroidFlutterLocalNotificationsPlugin>();
-    if (android == null) return false;
-    return await android.areNotificationsEnabled() ?? false;
+    if (android != null) {
+      return await android.areNotificationsEnabled() ?? false;
+    }
+
+    final IOSFlutterLocalNotificationsPlugin? ios =
+        _plugin.resolvePlatformSpecificImplementation<
+            IOSFlutterLocalNotificationsPlugin>();
+    if (ios != null) {
+      final NotificationsEnabledOptions? opts =
+          await ios.checkPermissions();
+      return opts?.isEnabled ?? false;
+    }
+
+    return false;
   }
 
   /// Notification ids are derived deterministically so a habit's reminders can
