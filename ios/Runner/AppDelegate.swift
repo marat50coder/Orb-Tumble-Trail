@@ -8,13 +8,14 @@ import UserNotifications
     _ application: UIApplication,
     didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?
   ) -> Bool {
-    // Required by flutter_local_notifications so that notification callbacks
-    // (delivery while the app is in the foreground, taps, actions) are routed
-    // through the plugin's own UNUserNotificationCenterDelegate. Without this
-    // scheduled reminders can silently fail on iOS.
+    // Local habit reminders (flutter_local_notifications) route their
+    // foreground presentation + taps through this delegate.
     if #available(iOS 10.0, *) {
       UNUserNotificationCenter.current().delegate = self
     }
+    // Gray-flow push (FCM/APNs): register so the APNs token is available and
+    // Firebase's swizzling can forward it to FirebaseMessaging.
+    application.registerForRemoteNotifications()
     return super.application(application, didFinishLaunchingWithOptions: launchOptions)
   }
 

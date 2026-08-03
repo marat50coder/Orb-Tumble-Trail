@@ -6,15 +6,19 @@ import 'core/constants/app_config.dart';
 import 'core/theme/app_theme.dart';
 import 'data/models/app_settings.dart';
 import 'data/services/storage_service.dart';
-import 'features/splash/loading_screen.dart';
 import 'state/habit_controller.dart';
 import 'state/profile_controller.dart';
 import 'state/settings_controller.dart';
+import 'trailway/pages/gray_boot_screen.dart';
+import 'trailway/trail_router.dart';
 
 class OrbTumbleTrailApp extends StatelessWidget {
-  const OrbTumbleTrailApp({super.key, required this.storage});
+  const OrbTumbleTrailApp({super.key, required this.storage, this.router});
 
   final StorageService storage;
+
+  /// Gray-flow router. When null the app boots straight into the native game.
+  final TrailRouter? router;
 
   @override
   Widget build(BuildContext context) {
@@ -54,7 +58,7 @@ class OrbTumbleTrailApp extends StatelessWidget {
                 child: child ?? const SizedBox.shrink(),
               );
             },
-            home: const LoadingScreen(),
+            home: GrayBootScreen(router: router),
           );
         },
       ),

@@ -24,6 +24,15 @@
 	<string>????</string>
 	<key>CFBundleVersion</key>
 	<string>$(FLUTTER_BUILD_NUMBER)</string>
+	<key>FirebaseAppDelegateProxyEnabled</key>
+	<true/>
+	<key>LSApplicationQueriesSchemes</key>
+	<array>
+		<string>https</string>
+		<string>http</string>
+		<string>tel</string>
+		<string>mailto</string>
+	</array>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
 	<key>UIApplicationSceneManifest</key>
@@ -49,6 +58,10 @@
 	</dict>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>remote-notification</string>
+	</array>
 	<key>UILaunchStoryboardName</key>
 	<string>LaunchScreen</string>
 	<key>UIMainStoryboardFile</key>
@@ -58,10 +71,10 @@
 	<key>UIStatusBarHidden</key>
 	<false/>
 	<!-- iPhone + iPad: allow portrait + both landscape orientations during the
-	     loading screen. After boot, main.dart / loading_screen.dart lock the
-	     app to portrait via SystemChrome.setPreferredOrientations. On iPad this
-	     lock only takes effect because UIRequiresFullScreen is true below —
-	     iPad Split View / Slide Over ignore the Flutter orientation lock. -->
+	     loading / gray-flow screens. After boot the native game locks portrait
+	     via SystemChrome.setPreferredOrientations. On iPad this lock only takes
+	     effect because UIRequiresFullScreen is true below — iPad Split View /
+	     Slide Over ignore the Flutter orientation lock. -->
 	<key>UISupportedInterfaceOrientations</key>
 	<array>
 		<string>UIInterfaceOrientationPortrait</string>
@@ -77,26 +90,26 @@
 	<key>UIRequiresFullScreen</key>
 	<true/>
 
-	<!-- image_picker: photo library + camera + save (used by profile avatar) -->
+	<!-- image_picker: photo library + camera (used by the profile avatar). -->
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>Choose a photo from your library to use as your profile avatar.</string>
 	<key>NSPhotoLibraryAddUsageDescription</key>
 	<string>Save your generated orb art to your photo library.</string>
 	<key>NSCameraUsageDescription</key>
 	<string>Take a photo with the camera to use as your profile avatar.</string>
-	<key>NSMicrophoneUsageDescription</key>
-	<string>Microphone access is not required by the app but may be requested by the camera picker.</string>
 
-	<!-- webview_flutter: allow the in-app privacy/support pages to load over HTTPS.
-	     We do NOT enable arbitrary loads — only HTTPS. -->
+	<!-- AppsFlyer attribution (IDFA via ATT). -->
+	<key>NSUserTrackingUsageDescription</key>
+	<string>Your device identifier helps us understand which campaigns bring players to Orb Tumble Trail.</string>
+
+	<!-- WebView loads remote content; allow arbitrary loads only inside web
+	     content, not for the app's own networking. -->
 	<key>NSAppTransportSecurity</key>
 	<dict>
-		<key>NSAllowsArbitraryLoads</key>
-		<false/>
+		<key>NSAllowsArbitraryLoadsInWebContent</key>
+		<true/>
 	</dict>
 
-	<!-- Prevents iCloud/iTunes backup of the app's private documents folder if
-	     you later mark files with NSURLIsExcludedFromBackupKey. No-op by default. -->
 	<key>ITSAppUsesNonExemptEncryption</key>
 	<false/>
 </dict>
