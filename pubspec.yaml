@@ -55,7 +55,8 @@ flutter:
   # Disable Swift Package Manager: this project uses CocoaPods (Podfile pins
   # Firebase/Messaging for the NSE target). Enabling SPM causes a
   # `Redefinition of module 'Firebase'` error on Codemagic.
-  disable-swift-package-manager: true
+  config:
+    enable-swift-package-manager: false
 
   uses-material-design: true
 
