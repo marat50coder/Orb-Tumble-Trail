@@ -52,6 +52,11 @@ dev_dependencies:
   flutter_launcher_icons: ^0.14.4
 
 flutter:
+  # Disable Swift Package Manager: this project uses CocoaPods (Podfile pins
+  # Firebase/Messaging for the NSE target). Enabling SPM causes a
+  # `Redefinition of module 'Firebase'` error on Codemagic.
+  disable-swift-package-manager: true
+
   uses-material-design: true
 
   assets:
