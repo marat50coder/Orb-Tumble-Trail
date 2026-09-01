@@ -1,8 +1,12 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/scheduler.dart';
 import 'package:flutter/services.dart';
 
+import '../../core/theme/app_palette.dart';
+import '../../core/theme/app_typography.dart';
 import '../../features/splash/loading_screen.dart';
 import '../core/trail_models.dart';
 import '../trail_router.dart';
@@ -26,19 +30,30 @@ class GrayBootScreen extends StatefulWidget {
   State<GrayBootScreen> createState() => _GrayBootScreenState();
 }
 
-class _GrayBootScreenState extends State<GrayBootScreen> {
+class _GrayBootScreenState extends State<GrayBootScreen>
+    with SingleTickerProviderStateMixin {
   bool _started = false;
   bool _navigating = false;
   TrailDestination? _destination;
   late final DateTime _startTime;
+  late final Ticker _ticker;
   Timer? _hardDeadline;
 
-  static const Duration _minSplash = Duration(milliseconds: 1400);
+  /// What the bar currently shows (0..1).
+  double _shown = 0;
+
+  /// Where the bar is allowed to travel to right now.
+  double _target = 0.04;
+
+  Duration _lastTick = Duration.zero;
+
+  static const Duration _minSplash = Duration(milliseconds: 1600);
 
   @override
   void initState() {
     super.initState();
     _startTime = DateTime.now();
+    _ticker = createTicker(_onTick)..start();
     // Splash supports both orientations; each destination re-asserts its own.
     SystemChrome.setPreferredOrientations(const <DeviceOrientation>[
       DeviceOrientation.portraitUp,
@@ -59,6 +74,7 @@ class _GrayBootScreenState extends State<GrayBootScreen> {
           );
           return true;
         }());
+        _liftTarget(1);
         _destination ??= const NativeTrail();
         _maybeNavigate();
       }
@@ -68,7 +84,42 @@ class _GrayBootScreenState extends State<GrayBootScreen> {
   @override
   void dispose() {
     _hardDeadline?.cancel();
+    _ticker.dispose();
     super.dispose();
+  }
+
+  void _onTick(Duration elapsed) {
+    final double dt =
+        ((elapsed - _lastTick).inMicroseconds / 1000000).clamp(0.0, 0.05);
+    _lastTick = elapsed;
+
+    // Slow time-based floor so the bar never sits still while the router waits.
+    final double elapsedSec =
+        DateTime.now().difference(_startTime).inMilliseconds / 1000;
+    final double timeFloor = (elapsedSec / 18).clamp(0.0, 0.92);
+    if (timeFloor > _target) _target = timeFloor;
+
+    if (_shown >= _target) return;
+
+    final double gap = _target - _shown;
+    final double speed = 0.32 + gap * 2.4;
+    final double next = math.min(_target, _shown + dt * speed);
+
+    if ((next * 100).floor() != (_shown * 100).floor() || next >= 1.0) {
+      setState(() => _shown = next);
+    } else {
+      _shown = next;
+    }
+  }
+
+  void _liftTarget(double value) {
+    final double next = value.clamp(0.0, 1.0);
+    if (next <= _target) return;
+    if (mounted) {
+      setState(() => _target = next);
+    } else {
+      _target = next;
+    }
   }
 
   @override
@@ -84,11 +135,12 @@ class _GrayBootScreenState extends State<GrayBootScreen> {
     final router = widget.router;
     if (router == null) {
       _destination = const NativeTrail();
+      _liftTarget(1);
       _maybeNavigate();
       return;
     }
     try {
-      _destination = await router.decide(onProgress: (_) {});
+      _destination = await router.decide(onProgress: _liftTarget);
     } catch (error) {
       assert(() {
         // ignore: avoid_print
@@ -97,6 +149,7 @@ class _GrayBootScreenState extends State<GrayBootScreen> {
       }());
       _destination = const NativeTrail();
     }
+    _liftTarget(1);
     assert(() {
       // ignore: avoid_print
       print('[OTT.BOOT] destination=${_destination.runtimeType}');
@@ -111,9 +164,15 @@ class _GrayBootScreenState extends State<GrayBootScreen> {
     if (elapsed < _minSplash) {
       await Future<void>.delayed(_minSplash - elapsed);
     }
+    // Hold until the bar actually reaches 100 so the user sees the fill finish.
+    final DateTime barDeadline = DateTime.now().add(const Duration(seconds: 2));
+    while (mounted && _shown < 0.995 && DateTime.now().isBefore(barDeadline)) {
+      await Future<void>.delayed(const Duration(milliseconds: 16));
+    }
     if (!mounted || _navigating) return;
     _navigating = true;
     _hardDeadline?.cancel();
+    _ticker.stop();
     await _open(_destination!);
   }
 
@@ -190,9 +249,11 @@ class _GrayBootScreenState extends State<GrayBootScreen> {
             errorBuilder: (_, _, _) =>
                 const ColoredBox(color: Color(0xFF05060B)),
           ),
-          const Align(
-            alignment: Alignment(0, 0.86),
-            child: SafeArea(child: _BootPulse()),
+          Align(
+            alignment: const Alignment(0, 0.86),
+            child: SafeArea(
+              child: _BootMeter(value: _shown),
+            ),
           ),
         ],
       ),
@@ -200,77 +261,94 @@ class _GrayBootScreenState extends State<GrayBootScreen> {
   }
 }
 
-/// Indeterminate "Loading" pill — no 0-100 bar, so handing over to the game's
-/// own progress bar (native path) doesn't look like a reset.
-class _BootPulse extends StatefulWidget {
-  const _BootPulse();
+class _BootMeter extends StatelessWidget {
+  const _BootMeter({required this.value});
 
-  @override
-  State<_BootPulse> createState() => _BootPulseState();
-}
-
-class _BootPulseState extends State<_BootPulse>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _ctrl;
-
-  @override
-  void initState() {
-    super.initState();
-    _ctrl = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 1200),
-    )..repeat();
-  }
-
-  @override
-  void dispose() {
-    _ctrl.dispose();
-    super.dispose();
-  }
+  final double value;
 
   @override
   Widget build(BuildContext context) {
-    return AnimatedBuilder(
-      animation: _ctrl,
-      builder: (context, _) {
-        final phase = (_ctrl.value * 3).floor() % 3;
-        return Container(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-          decoration: BoxDecoration(
-            color: Colors.black.withValues(alpha: 0.34),
-            borderRadius: BorderRadius.circular(999),
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: <Widget>[
-              const Text(
-                'Loading',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.w800,
-                  fontSize: 14,
-                  letterSpacing: 0.6,
-                ),
+    final bool landscape =
+        MediaQuery.of(context).orientation == Orientation.landscape;
+    final double width = MediaQuery.sizeOf(context).width;
+    final double barWidth = landscape
+        ? math.min(width * 0.34, 260)
+        : math.min(width * 0.74, 320);
+    final int percent = value >= 1.0 ? 100 : (value * 100).clamp(0, 99).floor();
+    final double height = landscape ? 5.0 : 7.0;
+
+    return Padding(
+      padding: EdgeInsets.only(bottom: landscape ? 18 : 8),
+      child: SizedBox(
+        width: barWidth,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: <Widget>[
+            Text(
+              'LOADING',
+              style: TextStyle(
+                fontFamily: AppType.body,
+                fontSize: landscape ? 11 : 13,
+                fontWeight: FontWeight.w500,
+                letterSpacing: landscape ? 3.4 : 4.2,
+                color: Colors.white.withValues(alpha: 0.88),
               ),
-              const SizedBox(width: 6),
-              for (int i = 0; i < 3; i++)
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 2),
-                  child: Container(
-                    width: 6,
-                    height: 6,
-                    decoration: BoxDecoration(
-                      color: Colors.white.withValues(
-                        alpha: i <= phase ? 1.0 : 0.3,
+            ),
+            SizedBox(height: landscape ? 10 : 16),
+            SizedBox(
+              height: height,
+              child: LayoutBuilder(
+                builder: (BuildContext context, BoxConstraints constraints) {
+                  final double filled =
+                      constraints.maxWidth * value.clamp(0.0, 1.0);
+                  return Stack(
+                    children: <Widget>[
+                      Container(
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(height),
+                          color: Colors.white.withValues(alpha: 0.14),
+                          border: Border.all(
+                            color: Colors.white.withValues(alpha: 0.16),
+                            width: 0.6,
+                          ),
+                        ),
                       ),
-                      shape: BoxShape.circle,
-                    ),
-                  ),
-                ),
-            ],
-          ),
-        );
-      },
+                      if (filled > 0)
+                        Container(
+                          width: filled,
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(height),
+                            gradient: const LinearGradient(
+                              colors: <Color>[
+                                AppPalette.auroraBlue,
+                                AppPalette.auroraViolet,
+                                AppPalette.auroraMagenta,
+                              ],
+                            ),
+                            boxShadow: <BoxShadow>[
+                              BoxShadow(
+                                color: AppPalette.auroraViolet
+                                    .withValues(alpha: 0.55),
+                                blurRadius: height * 2.6,
+                                spreadRadius: 0.2,
+                              ),
+                            ],
+                          ),
+                        ),
+                    ],
+                  );
+                },
+              ),
+            ),
+            SizedBox(height: landscape ? 8 : 14),
+            Text(
+              '$percent%',
+              style: AppType.numeric(landscape ? 15 : 22, color: Colors.white)
+                  .copyWith(letterSpacing: 0.4),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
